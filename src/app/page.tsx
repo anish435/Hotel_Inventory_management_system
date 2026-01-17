@@ -11,43 +11,13 @@ import { formatCurrency, cn } from "@/lib/utils";
 import { UserPlus, IndianRupee, BedDouble, AlertCircle } from "lucide-react";
 
 export default function Dashboard() {
-  const { rooms, getDailyLedger, inventory, seedDatabase, isLoaded } = useStore();
+  const { rooms, getDailyLedger, inventory, seedDatabase, isLoaded, currentUser } = useStore();
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
   const [isWalkInOpen, setIsWalkInOpen] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
 
   const ledger = getDailyLedger();
   const lowStockCount = inventory.filter(i => i.stock < 10).length;
-
-  // Checking Loading State FIRST
-  if (!isLoaded) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
-        <div className="animate-spin h-8 w-8 border-4 border-indigo-500 border-t-transparent rounded-full"></div>
-        <p className="text-zinc-500">Syncing with Cloud...</p>
-      </div>
-    );
-  }
-
-  // Then check for empty rooms
-  if (isLoaded && rooms.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
-        <h2 className="text-xl font-bold text-white">Database Initialization Required</h2>
-        <p className="text-zinc-400">Inventory found, but Room configurations are missing.</p>
-        <Button
-          onClick={async () => {
-            setIsSeeding(true);
-            await seedDatabase();
-            setIsSeeding(false);
-          }}
-          isLoading={isSeeding}
-        >
-          Initialize Rooms Database
-        </Button>
-      </div>
-    );
-  }
   const occupiedCount = rooms.filter(r => r.status === 'occupied').length;
 
   // Group rooms by floor (1, 2, 3, 4)
@@ -55,6 +25,41 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+
+      {/* Admin-only Database Init Banner - Non-blocking */}
+      {isLoaded && rooms.length === 0 && currentUser?.role === 'admin' && (
+        <Card className="bg-rose-500/10 border-rose-500/50 p-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-6 w-6 text-rose-500" />
+              <div>
+                <h3 className="font-semibold text-rose-500">Database Initialization Required</h3>
+                <p className="text-sm text-rose-400">Inventory found, but Room configurations are missing.</p>
+              </div>
+            </div>
+            <Button
+              onClick={async () => {
+                setIsSeeding(true);
+                await seedDatabase();
+                setIsSeeding(false);
+              }}
+              isLoading={isSeeding}
+              variant="danger"
+              size="sm"
+            >
+              Initialize Rooms
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Syncing Indicator (Subtle) */}
+      {!isLoaded && (
+        <div className="fixed bottom-4 right-4 z-50 bg-zinc-900 text-zinc-100 text-xs px-3 py-1.5 rounded-full flex items-center gap-2 shadow-lg border border-zinc-800">
+          <div className="h-2 w-2 bg-indigo-500 rounded-full animate-pulse" />
+          Syncing...
+        </div>
+      )}
       {/* Header Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-gradient-to-br from-indigo-50 to-white border-indigo-200 dark:from-indigo-900/40 dark:to-indigo-950/20 dark:border-indigo-500/20">
