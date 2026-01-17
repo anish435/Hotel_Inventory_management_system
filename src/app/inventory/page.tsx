@@ -6,18 +6,22 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { formatCurrency, cn } from "@/lib/utils";
 import { useState } from "react";
-import { Plus, Package, AlertTriangle, Edit2 } from "lucide-react";
+import { Plus, Package, AlertTriangle, Edit2, Trash2 } from "lucide-react";
 import { AdminAuthModal } from "@/components/pos/AdminAuthModal";
 import { AddItemModal } from "@/components/pos/AddItemModal";
 
 export default function InventoryPage() {
-    const { inventory, restockInventory, updateDrinkPrice } = useStore();
+    const { inventory, restockInventory, updateDrinkPrice, removeInventoryItem, currentUser } = useStore();
     const [restockAmounts, setRestockAmounts] = useState<Record<string, string>>({});
 
     // Admin & Modal State
     const [isAdminOpen, setIsAdminOpen] = useState(false);
     const [isAddItemOpen, setIsAddItemOpen] = useState(false);
     const [pendingAction, setPendingAction] = useState<{ type: 'restock' | 'add_item' | 'edit_price', payload?: any } | null>(null);
+
+    // Delete Confirmation State
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string, name: string } | null>(null);
 
     // Edit Price State
     const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
@@ -53,6 +57,22 @@ export default function InventoryPage() {
         if (!tempPrice) return;
         updateDrinkPrice(id, parseFloat(tempPrice));
         setEditingPriceId(null);
+    };
+
+    const handleDeleteClick = (id: string, name: string) => {
+        setItemToDelete({ id, name });
+        setDeleteConfirmOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!itemToDelete) return;
+        const result = await removeInventoryItem(itemToDelete.id);
+        if (result.success) {
+            setDeleteConfirmOpen(false);
+            setItemToDelete(null);
+        } else {
+            alert(result.error);
+        }
     };
 
     return (
@@ -142,6 +162,19 @@ export default function InventoryPage() {
                                     </Button>
                                 </div>
 
+                                {/* Delete Action (Admin Only) */}
+                                {currentUser?.role === 'admin' && (
+                                    <div className="pl-3 border-l border-zinc-800 ml-3">
+                                        <button
+                                            onClick={() => handleDeleteClick(item.id, item.name)}
+                                            className="p-2 text-zinc-600 hover:text-rose-500 dark:text-zinc-500 dark:hover:text-rose-500 transition-colors"
+                                            title="Remove Item"
+                                        >
+                                            <Trash2 className="h-5 w-5" />
+                                        </button>
+                                    </div>
+                                )}
+
                             </div>
 
                             {/* Progress Bar for Visual Stock */}
@@ -167,6 +200,40 @@ export default function InventoryPage() {
                 isOpen={isAddItemOpen}
                 onClose={() => setIsAddItemOpen(false)}
             />
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirmOpen && itemToDelete && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <Card className="w-full max-w-md p-6 bg-zinc-900 border-zinc-800">
+                        <div className="flex flex-col items-center text-center space-y-4">
+                            <div className="h-12 w-12 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-500">
+                                <AlertTriangle className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-white">Remove Inventory Item?</h3>
+                                <p className="text-sm text-zinc-400 mt-1">
+                                    Are you sure you want to remove <span className="text-white font-medium">{itemToDelete.name}</span> from inventory? This action cannot be undone.
+                                </p>
+                            </div>
+                            <div className="flex gap-3 w-full pt-2">
+                                <Button
+                                    variant="ghost"
+                                    className="flex-1"
+                                    onClick={() => { setDeleteConfirmOpen(false); setItemToDelete(null); }}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    className="flex-1 bg-rose-600 hover:bg-rose-700 text-white border-rose-500 shadow-lg shadow-rose-900/20"
+                                    onClick={confirmDelete}
+                                >
+                                    Confirm Delete
+                                </Button>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+            )}
         </div>
     );
 }

@@ -12,6 +12,23 @@ export type OrderItem = {
     price: number;
     quantity: number;
     total: number;
+    bellboyId?: string;
+    bellboyName?: string;
+};
+
+export type StaffRole = 'bellboy' | 'front_office' | 'admin';
+
+export type Staff = {
+    id: string;
+    name: string;
+    role: StaffRole;
+};
+
+export type User = {
+    id: string;
+    username: string; // Used for "Logged-in user name"
+    password: string; // Stored securely? For this demo, maybe plain or simple hash
+    role: 'admin' | 'guest';
 };
 
 export type RoomStatus = 'vacant' | 'occupied';

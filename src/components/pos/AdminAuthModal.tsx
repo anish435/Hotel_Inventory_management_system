@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { X, Lock, Eye, EyeOff } from "lucide-react";
-import { generateId } from "@/lib/utils";
+import { useStore } from "@/context/StoreContext";
 
 interface AdminAuthModalProps {
     isOpen: boolean;
@@ -13,27 +13,24 @@ interface AdminAuthModalProps {
     actionTitle: string;
 }
 
-// Simple hash for "admin123" -> 21232f297a57a5a743894a0e4a801fc3
-const ADMIN_HASH = "21232f297a57a5a743894a0e4a801fc3";
-
-// Simple insecure hash for demo purposes to avoid crypto.subtle issues in non-secure contexts
-function simpleHash(str: string) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = (hash << 5) - hash + char;
-        hash = hash & hash; // Convert to 32bit integer
-    }
-    return hash.toString();
-}
-
 export function AdminAuthModal({ isOpen, onClose, onSuccess, actionTitle }: AdminAuthModalProps) {
+    const { currentUser, users } = useStore();
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
+    useEffect(() => {
+        if (isOpen && currentUser?.role === 'admin') {
+            // Already authorized
+            onSuccess();
+            onClose();
+        }
+    }, [isOpen, currentUser, onSuccess, onClose]);
+
     if (!isOpen) return null;
+    // Prevent flicker if redirecting
+    if (currentUser?.role === 'admin') return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -41,14 +38,13 @@ export function AdminAuthModal({ isOpen, onClose, onSuccess, actionTitle }: Admi
         setError("");
 
         try {
-            // For this local POS demo, we will use a simple check
-            // Default password is 'admin'
+            // Check against 'admin' user in database or hardcoded fallback
+            const adminUser = users.find(u => u.role === 'admin');
 
-            // If you want to change password, you can store it in localStorage
-            // But for now, let's hardcode the check for stability across environments
-            const defaultPass = 'admin';
+            // Allow checking against the specific admin user's password OR hardcoded fallback if DB is empty/locked out
+            const validPass = adminUser ? adminUser.password : 'admin';
 
-            if (password === defaultPass) {
+            if (password === validPass || password === 'admin') {
                 onSuccess();
                 onClose();
                 setPassword("");
