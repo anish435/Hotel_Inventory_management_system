@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { formatCurrency, cn } from "@/lib/utils";
 import { useState } from "react";
-import { Plus, Package, AlertTriangle, Edit2, Trash2 } from "lucide-react";
+import { Plus, Package, AlertTriangle, Edit2, Trash2, Minus } from "lucide-react";
 import { AdminAuthModal } from "@/components/pos/AdminAuthModal";
 import { AddItemModal } from "@/components/pos/AddItemModal";
 
@@ -17,7 +17,7 @@ export default function InventoryPage() {
     // Admin & Modal State
     const [isAdminOpen, setIsAdminOpen] = useState(false);
     const [isAddItemOpen, setIsAddItemOpen] = useState(false);
-    const [pendingAction, setPendingAction] = useState<{ type: 'restock' | 'add_item' | 'edit_price', payload?: any } | null>(null);
+    const [pendingAction, setPendingAction] = useState<{ type: 'restock' | 'decrease_stock' | 'add_item' | 'edit_price' | 'delete_item', payload?: any } | null>(null);
 
     // Delete Confirmation State
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -27,7 +27,7 @@ export default function InventoryPage() {
     const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
     const [tempPrice, setTempPrice] = useState("");
 
-    const initiateAction = (type: 'restock' | 'add_item' | 'edit_price', payload?: any) => {
+    const initiateAction = (type: 'restock' | 'decrease_stock' | 'add_item' | 'edit_price' | 'delete_item', payload?: any) => {
         setPendingAction({ type, payload });
         setIsAdminOpen(true);
     };
@@ -40,6 +40,11 @@ export default function InventoryPage() {
         } else if (pendingAction.type === 'restock') {
             const { id, amount } = pendingAction.payload;
             restockInventory(id, amount);
+
+            setRestockAmounts(prev => ({ ...prev, [id]: '' }));
+        } else if (pendingAction.type === 'decrease_stock') {
+            const { id, amount } = pendingAction.payload;
+            restockInventory(id, -amount);
             setRestockAmounts(prev => ({ ...prev, [id]: '' }));
         } else if (pendingAction.type === 'edit_price') {
             const { id } = pendingAction.payload;
@@ -48,6 +53,10 @@ export default function InventoryPage() {
                 setEditingPriceId(id);
                 setTempPrice(item.price.toString());
             }
+        } else if (pendingAction.type === 'delete_item') {
+            const { id, name } = pendingAction.payload;
+            setItemToDelete({ id, name });
+            setDeleteConfirmOpen(true);
         }
 
         setPendingAction(null);
@@ -59,10 +68,7 @@ export default function InventoryPage() {
         setEditingPriceId(null);
     };
 
-    const handleDeleteClick = (id: string, name: string) => {
-        setItemToDelete({ id, name });
-        setDeleteConfirmOpen(true);
-    };
+
 
     const confirmDelete = async () => {
         if (!itemToDelete) return;
@@ -160,20 +166,28 @@ export default function InventoryPage() {
                                         <Plus className="h-4 w-4 mr-2" />
                                         Restock
                                     </Button>
+                                    <Button
+                                        variant="outline"
+                                        className="border-zinc-700 hover:bg-zinc-800 hover:text-rose-400 text-zinc-400"
+                                        disabled={!restockVal || parseInt(restockVal) <= 0}
+                                        onClick={() => initiateAction('decrease_stock', { id: item.id, amount: parseInt(restockVal) })}
+                                        title="Decrease Stock"
+                                    >
+                                        <Minus className="h-4 w-4" />
+                                    </Button>
                                 </div>
 
                                 {/* Delete Action (Admin Only) */}
-                                {currentUser?.role === 'admin' && (
-                                    <div className="pl-3 border-l border-zinc-800 ml-3">
-                                        <button
-                                            onClick={() => handleDeleteClick(item.id, item.name)}
-                                            className="p-2 text-zinc-600 hover:text-rose-500 dark:text-zinc-500 dark:hover:text-rose-500 transition-colors"
-                                            title="Remove Item"
-                                        >
-                                            <Trash2 className="h-5 w-5" />
-                                        </button>
-                                    </div>
-                                )}
+                                {/* Delete Action (Protected) */}
+                                <div className="pl-3 border-l border-zinc-800 ml-3">
+                                    <button
+                                        onClick={() => initiateAction('delete_item', { id: item.id, name: item.name })}
+                                        className="p-2 text-zinc-600 hover:text-rose-500 dark:text-zinc-500 dark:hover:text-rose-500 transition-colors"
+                                        title="Remove Item"
+                                    >
+                                        <Trash2 className="h-5 w-5" />
+                                    </button>
+                                </div>
 
                             </div>
 
@@ -193,7 +207,7 @@ export default function InventoryPage() {
                 isOpen={isAdminOpen}
                 onClose={() => setIsAdminOpen(false)}
                 onSuccess={handleAdminSuccess}
-                actionTitle={pendingAction?.type === 'add_item' ? 'Add New Item' : pendingAction?.type === 'edit_price' ? 'Edit Price' : 'Restock Inventory'}
+                actionTitle={pendingAction?.type === 'add_item' ? 'Add New Item' : pendingAction?.type === 'edit_price' ? 'Edit Price' : pendingAction?.type === 'delete_item' ? 'Delete Item' : pendingAction?.type === 'decrease_stock' ? 'Decrease Stock' : 'Restock Inventory'}
             />
 
             <AddItemModal
