@@ -11,9 +11,11 @@ interface AdminAuthModalProps {
     onClose: () => void;
     onSuccess: () => void;
     actionTitle: string;
+    forceAuth?: boolean;
 }
 
-export function AdminAuthModal({ isOpen, onClose, onSuccess, actionTitle }: AdminAuthModalProps) {
+
+export function AdminAuthModal({ isOpen, onClose, onSuccess, actionTitle, forceAuth = false }: AdminAuthModalProps) {
     const { currentUser, users } = useStore();
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
@@ -21,16 +23,16 @@ export function AdminAuthModal({ isOpen, onClose, onSuccess, actionTitle }: Admi
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
-        if (isOpen && currentUser?.role === 'admin') {
+        if (isOpen && currentUser?.role === 'admin' && !forceAuth) {
             // Already authorized
             onSuccess();
             onClose();
         }
-    }, [isOpen, currentUser, onSuccess, onClose]);
+    }, [isOpen, currentUser, onSuccess, onClose, forceAuth]);
 
     if (!isOpen) return null;
     // Prevent flicker if redirecting
-    if (currentUser?.role === 'admin') return null;
+    if (currentUser?.role === 'admin' && !forceAuth) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

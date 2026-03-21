@@ -100,6 +100,11 @@ export function RoomDetailModal({ roomNumber, isOpen, onClose }: RoomDetailModal
                                                         {item.bellboyName}
                                                     </span>
                                                 )}
+                                                {item.timestamp && (
+                                                    <span className="text-zinc-600">
+                                                        • {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-4">

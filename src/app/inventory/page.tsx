@@ -208,6 +208,7 @@ export default function InventoryPage() {
                 onClose={() => setIsAdminOpen(false)}
                 onSuccess={handleAdminSuccess}
                 actionTitle={pendingAction?.type === 'add_item' ? 'Add New Item' : pendingAction?.type === 'edit_price' ? 'Edit Price' : pendingAction?.type === 'delete_item' ? 'Delete Item' : pendingAction?.type === 'decrease_stock' ? 'Decrease Stock' : 'Restock Inventory'}
+                forceAuth={pendingAction?.type === 'decrease_stock'}
             />
 
             <AddItemModal

@@ -216,6 +216,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 if (existingOrderIndex >= 0) {
                     updatedOrders[existingOrderIndex].quantity += quantity;
                     updatedOrders[existingOrderIndex].total = updatedOrders[existingOrderIndex].quantity * updatedOrders[existingOrderIndex].price;
+                    updatedOrders[existingOrderIndex].timestamp = Date.now();
                 } else {
                     updatedOrders.push({
                         drinkId,
@@ -224,7 +225,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                         quantity,
                         total: drink.price * quantity,
                         bellboyId: bellboy?.id,
-                        bellboyName: bellboy?.name
+                        bellboyName: bellboy?.name,
+                        timestamp: Date.now()
                     });
                 }
 

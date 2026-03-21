@@ -34,7 +34,7 @@ export function WalkInModal({ isOpen, onClose }: WalkInModalProps) {
             if (existing) {
                 return prev.map(p =>
                     p.drinkId === drinkId
-                        ? { ...p, quantity: p.quantity + 1, total: (p.quantity + 1) * p.price }
+                        ? { ...p, quantity: p.quantity + 1, total: (p.quantity + 1) * p.price, timestamp: Date.now() }
                         : p
                 );
             }
@@ -43,7 +43,8 @@ export function WalkInModal({ isOpen, onClose }: WalkInModalProps) {
                 drinkName: drink.name + ' ' + drink.volume,
                 price: drink.price,
                 quantity: 1,
-                total: drink.price
+                total: drink.price,
+                timestamp: Date.now()
             }];
         });
     };
@@ -137,8 +138,13 @@ export function WalkInModal({ isOpen, onClose }: WalkInModalProps) {
                                     <div key={`${item.drinkId}-${idx}`} className="flex items-center justify-between bg-zinc-800/30 p-3 rounded-lg border border-zinc-800">
                                         <div>
                                             <div className="font-medium text-zinc-200">{item.drinkName}</div>
-                                            <div className="text-xs text-zinc-500">
-                                                {item.quantity} x {formatCurrency(item.price)}
+                                            <div className="flex items-center gap-2 text-xs text-zinc-500">
+                                                <span>{item.quantity} x {formatCurrency(item.price)}</span>
+                                                {item.timestamp && (
+                                                    <span className="text-zinc-600">
+                                                        • {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-4">

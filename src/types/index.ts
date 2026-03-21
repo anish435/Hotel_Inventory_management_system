@@ -14,6 +14,7 @@ export type OrderItem = {
     total: number;
     bellboyId?: string;
     bellboyName?: string;
+    timestamp?: number;
 };
 
 export type StaffRole = 'bellboy' | 'front_office' | 'admin';
