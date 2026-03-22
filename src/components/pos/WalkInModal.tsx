@@ -79,7 +79,7 @@ export function WalkInModal({ isOpen, onClose }: WalkInModalProps) {
             if (existing.quantity > 1) {
                 return prev.map(p =>
                     p.drinkId === drinkId
-                        ? { ...p, quantity: p.quantity - 1, total: (p.quantity - 1) * p.price }
+                        ? { ...p, quantity: p.quantity - 1, total: (p.quantity - 1) * p.price, timestamps: p.timestamps ? p.timestamps.slice(0, -1) : [] }
                         : p
                 );
             }

@@ -270,8 +270,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
             let updatedOrders = [...room.currentOrders];
             if (updatedOrders[orderIndex].quantity > 1) {
-                updatedOrders[orderIndex].quantity -= 1;
-                updatedOrders[orderIndex].total = updatedOrders[orderIndex].quantity * updatedOrders[orderIndex].price;
+                updatedOrders[orderIndex] = {
+                    ...updatedOrders[orderIndex],
+                    quantity: updatedOrders[orderIndex].quantity - 1,
+                    total: (updatedOrders[orderIndex].quantity - 1) * updatedOrders[orderIndex].price,
+                    timestamps: updatedOrders[orderIndex].timestamps ? updatedOrders[orderIndex].timestamps.slice(0, -1) : []
+                };
             } else {
                 updatedOrders = updatedOrders.filter((_, idx) => idx !== orderIndex);
             }
