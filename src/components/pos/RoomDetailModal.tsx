@@ -100,12 +100,16 @@ export function RoomDetailModal({ roomNumber, isOpen, onClose }: RoomDetailModal
                                                         {item.bellboyName}
                                                     </span>
                                                 )}
-                                                {item.timestamp && (
-                                                    <span className="text-zinc-600">
-                                                        • {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                    </span>
-                                                )}
                                             </div>
+                                            {item.timestamps && item.timestamps.length > 0 && (
+                                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                                    {item.timestamps.map((t, i) => (
+                                                        <span key={i} className="text-[10px] text-zinc-400 bg-black/40 border border-zinc-800/50 px-1.5 py-0.5 rounded">
+                                                            {new Date(t).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="flex items-center gap-4">
                                             <div className="font-bold text-zinc-200">{formatCurrency(item.total)}</div>

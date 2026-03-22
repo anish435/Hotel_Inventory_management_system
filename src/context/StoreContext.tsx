@@ -213,10 +213,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 // We prioritize splitting by Bellboy if specified
                 const existingOrderIndex = updatedOrders.findIndex(o => o.drinkId === drinkId && o.bellboyId === bellboyId);
 
+                const now = Date.now();
                 if (existingOrderIndex >= 0) {
-                    updatedOrders[existingOrderIndex].quantity += quantity;
-                    updatedOrders[existingOrderIndex].total = updatedOrders[existingOrderIndex].quantity * updatedOrders[existingOrderIndex].price;
-                    updatedOrders[existingOrderIndex].timestamp = Date.now();
+                    const current = updatedOrders[existingOrderIndex];
+                    current.quantity += quantity;
+                    current.total = current.quantity * current.price;
+                    current.timestamps = [...(current.timestamps || (current.timestamp ? [current.timestamp] : [])), now];
+                    current.timestamp = now;
                 } else {
                     updatedOrders.push({
                         drinkId,
@@ -226,7 +229,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                         total: drink.price * quantity,
                         bellboyId: bellboy?.id,
                         bellboyName: bellboy?.name,
-                        timestamp: Date.now()
+                        timestamp: now,
+                        timestamps: [now]
                     });
                 }
 

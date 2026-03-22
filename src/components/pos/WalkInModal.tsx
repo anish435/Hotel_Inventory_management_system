@@ -31,10 +31,17 @@ export function WalkInModal({ isOpen, onClose }: WalkInModalProps) {
 
         setCurrentOrder(prev => {
             const existing = prev.find(p => p.drinkId === drinkId);
+            const now = Date.now();
             if (existing) {
                 return prev.map(p =>
                     p.drinkId === drinkId
-                        ? { ...p, quantity: p.quantity + 1, total: (p.quantity + 1) * p.price, timestamp: Date.now() }
+                        ? { 
+                            ...p, 
+                            quantity: p.quantity + 1, 
+                            total: (p.quantity + 1) * p.price, 
+                            timestamp: now, 
+                            timestamps: [...(p.timestamps || (p.timestamp ? [p.timestamp] : [])), now] 
+                          }
                         : p
                 );
             }
@@ -44,7 +51,8 @@ export function WalkInModal({ isOpen, onClose }: WalkInModalProps) {
                 price: drink.price,
                 quantity: 1,
                 total: drink.price,
-                timestamp: Date.now()
+                timestamp: now,
+                timestamps: [now]
             }];
         });
     };
@@ -140,12 +148,16 @@ export function WalkInModal({ isOpen, onClose }: WalkInModalProps) {
                                             <div className="font-medium text-zinc-200">{item.drinkName}</div>
                                             <div className="flex items-center gap-2 text-xs text-zinc-500">
                                                 <span>{item.quantity} x {formatCurrency(item.price)}</span>
-                                                {item.timestamp && (
-                                                    <span className="text-zinc-600">
-                                                        • {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                    </span>
-                                                )}
                                             </div>
+                                            {item.timestamps && item.timestamps.length > 0 && (
+                                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                                    {item.timestamps.map((t, i) => (
+                                                        <span key={i} className="text-[10px] text-zinc-400 bg-black/40 border border-zinc-800/50 px-1.5 py-0.5 rounded">
+                                                            {new Date(t).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="flex items-center gap-4">
                                             <div className="font-bold text-zinc-200">{formatCurrency(item.total)}</div>
