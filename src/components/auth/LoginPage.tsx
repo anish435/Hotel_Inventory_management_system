@@ -8,7 +8,8 @@ import { Eye, EyeOff } from 'lucide-react';
 
 const AUTHORIZED_EMAILS = [
     "vaishnaviinnrjy@gmail.com",
-    "anishkotikalapudi1@gmail.com"
+    "anishkotikalapudi1@gmail.com",
+    "sailendra94@gmail.com"
 ];
 
 export default function LoginPage() {
@@ -89,8 +90,16 @@ export default function LoginPage() {
         setIsLoading(true);
         setError('');
         setSuccessMessage('');
+
+        const cleanEmail = email.trim();
+        
+        if (cleanEmail.toLowerCase() !== "sailendra94@gmail.com") {
+            setError("Access denied. This email is not authorized for manual login.");
+            setIsLoading(false);
+            return;
+        }
+
         try {
-            const cleanEmail = email.trim();
             if (isSignUp) {
                 await createUserWithEmailAndPassword(auth, cleanEmail, password);
             } else {

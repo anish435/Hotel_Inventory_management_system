@@ -8,7 +8,8 @@ import { Sidebar } from '@/components/layout/Sidebar';
 
 const AUTHORIZED_EMAILS = [
     "vaishnaviinnrjy@gmail.com",
-    "anishkotikalapudi1@gmail.com"
+    "anishkotikalapudi1@gmail.com",
+    "sailendra94@gmail.com"
 ];
 
 export default function AuthWrapper({ children }: { children: React.ReactNode }) {
