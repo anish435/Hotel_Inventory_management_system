@@ -1,6 +1,6 @@
 'use client';
 
-import { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 import { useState, useEffect } from 'react';
 import AnoAI from '@/components/ui/animated-shader-background';
@@ -14,6 +14,7 @@ const AUTHORIZED_EMAILS = [
 export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
     const [isSignUp, setIsSignUp] = useState(false);
     
     // Manual Login State
@@ -65,10 +66,29 @@ export default function LoginPage() {
         }
     };
 
+    const handleResetPassword = async () => {
+        if (!email.trim()) {
+            setError("Please enter your email address first to reset your password.");
+            return;
+        }
+        setIsLoading(true);
+        setError('');
+        setSuccessMessage('');
+        try {
+            await sendPasswordResetEmail(auth, email.trim());
+            setSuccessMessage("Password reset email sent! Check your inbox to set a password.");
+        } catch (err: any) {
+            console.error("Password reset failed", err);
+            handleError(err);
+        }
+        setIsLoading(false);
+    };
+
     const handleManualLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         setError('');
+        setSuccessMessage('');
         try {
             const cleanEmail = email.trim();
             if (isSignUp) {
@@ -96,6 +116,12 @@ export default function LoginPage() {
                 {error && (
                     <div className="w-full bg-red-900/30 text-red-400 border border-red-900/50 p-3 rounded-lg text-sm mb-6">
                         {error}
+                    </div>
+                )}
+                
+                {successMessage && (
+                    <div className="w-full bg-green-900/30 text-green-400 border border-green-900/50 p-3 rounded-lg text-sm mb-6">
+                        {successMessage}
                     </div>
                 )}
                 
@@ -127,6 +153,18 @@ export default function LoginPage() {
                             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                         </button>
                     </div>
+                    
+                    {!isSignUp && (
+                        <div className="text-right mt-1 mb-4">
+                            <button 
+                                type="button" 
+                                onClick={handleResetPassword}
+                                className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                            >
+                                Forgot password?
+                            </button>
+                        </div>
+                    )}
                     
                     <button 
                         type="submit" 

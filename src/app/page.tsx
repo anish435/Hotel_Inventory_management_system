@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { RoomDetailModal } from "@/components/pos/RoomDetailModal";
 import { WalkInModal } from "@/components/pos/WalkInModal";
 import { formatCurrency, cn } from "@/lib/utils";
-import { UserPlus, IndianRupee, BedDouble, AlertCircle } from "lucide-react";
+import { UserPlus, IndianRupee, BedDouble, AlertCircle, User } from "lucide-react";
 
 export default function Dashboard() {
   const { rooms, getDailyLedger, inventory, seedDatabase, isLoaded, currentUser } = useStore();
@@ -170,6 +170,12 @@ export default function Dashboard() {
                     <div className="mt-auto w-full">
                       {isActive ? (
                         <div className="text-left">
+                          {room.guestName && (
+                            <div className="flex items-center gap-2 mb-3 text-indigo-500 dark:text-indigo-400">
+                              <User className="h-4 w-4" />
+                              <span className="font-medium text-sm truncate">{room.guestName}</span>
+                            </div>
+                          )}
                           <p className="text-xs font-medium uppercase tracking-wider mb-1 text-indigo-500 dark:text-indigo-300">Current Bill</p>
                           <p className="text-xl font-bold text-indigo-950 dark:text-white">{formatCurrency(total)}</p>
                           <p className="text-xs mt-1 text-indigo-400 dark:text-zinc-500">{room.currentOrders.length} items</p>
