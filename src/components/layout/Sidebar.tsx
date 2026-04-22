@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, History, Package, Menu, X, ChevronRight, UserCircle, Users, Sun, Moon } from 'lucide-react';
+import { Home, History, Package, Menu, X, ChevronRight, UserCircle, Users, Sun, Moon, BookOpen } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -12,9 +12,11 @@ import { StaffManagementModal } from '../pos/StaffManagementModal';
 
 export function Sidebar() {
     const pathname = usePathname();
-    const { currentUser } = useStore();
+    const { currentUser, credits } = useStore();
     const { theme, toggleTheme } = useTheme();
     const [isExpanded, setIsExpanded] = useState(false);
+    
+    const pendingCreditsCount = credits ? credits.filter(c => c.status === 'pending').length : 0;
 
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isStaffOpen, setIsStaffOpen] = useState(false);
@@ -23,6 +25,7 @@ export function Sidebar() {
         { label: 'Room Grid', icon: Home, href: '/' },
         { label: 'Sales History', icon: History, href: '/history' },
         { label: 'Inventory', icon: Package, href: '/inventory' },
+        { label: 'Credits', icon: BookOpen, href: '/credits' },
     ];
 
     return (
@@ -96,11 +99,20 @@ export function Sidebar() {
                                 )} />
 
                                 <span className={cn(
-                                    "transition-opacity duration-200",
+                                    "transition-opacity duration-200 flex-1",
                                     isExpanded ? "opacity-100" : "opacity-0 lg:opacity-100 hidden lg:block"
                                 )}>
                                     {item.label}
                                 </span>
+                                
+                                {item.label === 'Credits' && pendingCreditsCount > 0 && (
+                                    <span className={cn(
+                                        "bg-amber-500 text-amber-950 text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-5 text-center transition-opacity duration-200",
+                                        isExpanded ? "opacity-100" : "opacity-0 lg:opacity-100 hidden lg:block"
+                                    )}>
+                                        {pendingCreditsCount}
+                                    </span>
+                                )}
                             </Link>
                         );
                     })}

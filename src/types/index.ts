@@ -39,18 +39,35 @@ export type Room = {
     id: string;
     number: string;
     status: RoomStatus;
+    guestName?: string;
     currentOrders: OrderItem[];
 };
 
-export type PaymentMode = 'cash' | 'upi';
+export type PaymentMode = 'cash' | 'upi' | 'credit' | 'partial';
 export type SaleType = 'room' | 'outside';
+
+export type CreditStatus = 'pending' | 'settled';
+
+export type CreditRecord = {
+    id: string;
+    customerName: string;
+    roomNumber?: string;
+    amount: number;
+    items?: OrderItem[];
+    status: CreditStatus;
+    paymentMode: PaymentMode;
+    createdAt: number;
+    settledAt?: number;
+};
 
 export type SaleRecord = {
     id: string;
     type: SaleType;
     roomNumber?: string; // If type is 'room'
+    guestName?: string; // Added guestName
     items: OrderItem[];
     totalAmount: number;
+    amountPaid?: number; // Added for partial payments
     paymentMode: PaymentMode;
     timestamp: number; // Date.now()
 };

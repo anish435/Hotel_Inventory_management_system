@@ -37,6 +37,7 @@ export default function HistoryPage() {
             "Date": new Date(sale.timestamp).toLocaleString(),
             "Type": sale.type,
             "Room Number": sale.roomNumber || "Walk-In",
+            "Guest Name": sale.guestName || "N/A",
             "Items Summary": sale.items.map(i => `${i.drinkName} (${i.quantity}) [Served By: ${i.bellboyName || 'N/A'}]`).join(', '),
             "Total Amount": sale.totalAmount,
             "Payment Mode": sale.paymentMode
@@ -162,8 +163,9 @@ export default function HistoryPage() {
                                             {sale.type === 'room' ? <ArrowDownLeft className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
                                         </div>
                                         <div>
-                                            <h4 className="font-semibold text-zinc-800 dark:text-zinc-200">
+                                            <h4 className="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
                                                 {sale.type === 'room' ? `Room ${sale.roomNumber}` : 'Walk-in Sale'}
+                                                {sale.guestName && <span className="text-sm font-normal text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full">{sale.guestName}</span>}
                                             </h4>
                                             <span className="text-xs text-zinc-500 font-mono">#{sale.id.slice(0, 8)}</span>
                                         </div>

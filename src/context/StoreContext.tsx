@@ -11,11 +11,14 @@ import {
     PaymentMode,
     DailyLedger,
     Staff,
-    User
+    User,
+    CreditRecord,
+    CreditStatus
 } from '@/types';
 import { format } from 'date-fns';
 import { generateId } from '@/lib/utils';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import {
     collection,
     onSnapshot,
@@ -35,13 +38,16 @@ interface StoreContextType {
     rooms: Room[];
     salesHistory: SaleRecord[];
     staff: Staff[];
-    users: User[];
     currentUser: User | null;
+
+    credits: CreditRecord[];
 
     addToRoom: (roomNumber: string, drinkId: string, quantity: number, bellboyId?: string) => Promise<{ success: boolean; error?: string }>;
     removeFromRoom: (roomNumber: string, orderIndex: number) => Promise<void>;
-    checkoutRoom: (roomNumber: string, paymentMode: PaymentMode) => Promise<void>;
-    processOutsideSale: (items: OrderItem[], paymentMode: PaymentMode) => Promise<{ success: boolean; error?: string }>;
+    shiftRoom: (sourceRoomId: string, targetRoomId: string) => Promise<{ success: boolean; error?: string }>;
+    updateRoomGuestName: (roomNumber: string, guestName: string) => Promise<void>;
+    checkoutRoom: (roomNumber: string, paymentMode: PaymentMode, amountPaid?: number) => Promise<void>;
+    processOutsideSale: (items: OrderItem[], paymentMode: PaymentMode, guestName?: string, amountPaid?: number) => Promise<{ success: boolean; error?: string }>;
     restockInventory: (drinkId: string, quantity: number) => Promise<void>;
     addInventoryItem: (item: Omit<DrinkItem, 'id'>) => Promise<void>;
     removeInventoryItem: (id: string) => Promise<{ success: boolean; error?: string }>;
@@ -51,13 +57,16 @@ interface StoreContextType {
     isLoaded: boolean;
     seedDatabase: () => Promise<void>;
 
+    // Credits
+    settleCredit: (id: string, paymentMode?: PaymentMode) => Promise<void>;
+    deleteCredit: (id: string) => Promise<void>;
+    addCredit: (credit: Omit<CreditRecord, 'id' | 'createdAt'>) => Promise<void>;
+
     // Staff & User Management
     addStaff: (staff: Omit<Staff, 'id'>) => Promise<void>;
     removeStaff: (id: string) => Promise<void>;
     updateStaff: (id: string, data: Partial<Staff>) => Promise<void>;
-    login: (password: string) => Promise<boolean>;
-    logout: () => void;
-    changePassword: (oldPass: string, newPass: string) => Promise<{ success: boolean, error?: string }>;
+    logout: () => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -67,7 +76,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const [rooms, setRooms] = useState<Room[]>([]);
     const [salesHistory, setSalesHistory] = useState<SaleRecord[]>([]);
     const [staff, setStaff] = useState<Staff[]>([]);
-    const [users, setUsers] = useState<User[]>([]);
+    const [credits, setCredits] = useState<CreditRecord[]>([]);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [isLoaded, setIsLoaded] = useState(false);
 
@@ -75,7 +84,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         const seedDataIfNeeded = async () => {
             try {
-                // Inventory & Rooms seeding (existing code)
+                // Inventory & Rooms seeding
                 const invSnapshot = await getDocs(collection(db, 'inventory'));
                 if (invSnapshot.empty) {
                     console.log("Seeding Initial Inventory...");
@@ -103,20 +112,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                     });
                     await batch.commit();
                 }
-
-                // Seed Default Admin User if missing
-                const usersSnapshot = await getDocs(collection(db, 'users'));
-                if (usersSnapshot.empty) {
-                    console.log("Seeding Default Admin...");
-                    const adminUser: User = {
-                        id: 'admin',
-                        username: 'Administrator',
-                        password: 'admin', // Default password
-                        role: 'admin'
-                    };
-                    await setDoc(doc(db, 'users', 'admin'), adminUser);
-                }
-
             } catch (e) {
                 console.error("Error checking/seeding data:", e);
             }
@@ -151,44 +146,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             setStaff(data);
         });
 
-        // Users Listener
-        const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
-            setUsers(data);
+        // Auth Listener
+        const unsubAuth = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                setCurrentUser({
+                    id: user.uid,
+                    username: user.email || 'Admin',
+                    password: '',
+                    role: 'admin'
+                });
+            } else {
+                setCurrentUser(null);
+            }
         });
 
-        // Recover session
-        const storedUser = localStorage.getItem('currentUser');
-        if (storedUser) {
-            try {
-                const parsed = JSON.parse(storedUser);
-                setCurrentUser(parsed);
-            } catch (e) { }
-        }
+        // Credits Listener
+        const unsubCredits = onSnapshot(query(collection(db, 'credits'), orderBy('createdAt', 'desc')), (snapshot) => {
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CreditRecord));
+            setCredits(data);
+        });
 
         return () => {
             unsubInventory();
             unsubRooms();
             unsubSales();
             unsubStaff();
-            unsubUsers();
+            unsubAuth();
+            unsubCredits();
         };
     }, []);
-
-    // Sync currentUser with latest data if updated
-    useEffect(() => {
-        if (currentUser && users.length > 0) {
-            const freshUser = users.find(u => u.id === currentUser.id);
-            if (freshUser) {
-                if (freshUser.password !== currentUser.password) {
-                    // Pass changed remotely? 
-                    setCurrentUser(freshUser);
-                    localStorage.setItem('currentUser', JSON.stringify(freshUser));
-                }
-                // Handle role changes etc if needed
-            }
-        }
-    }, [users, currentUser]);
 
     const addToRoom = async (roomNumber: string, drinkId: string, quantity: number, bellboyId?: string) => {
         const drink = inventory.find(d => d.id === drinkId);
@@ -292,30 +278,50 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const checkoutRoom = async (roomNumber: string, paymentMode: PaymentMode) => {
+    const checkoutRoom = async (roomNumber: string, paymentMode: PaymentMode, amountPaid?: number) => {
         const room = rooms.find(r => r.number === roomNumber);
         if (!room || room.currentOrders.length === 0) return;
 
         const totalAmount = room.currentOrders.reduce((sum, item) => sum + item.total, 0);
         const saleId = generateId();
+        const finalAmountPaid = amountPaid !== undefined ? amountPaid : totalAmount;
+        const finalPaymentMode = amountPaid !== undefined && amountPaid < totalAmount ? 'partial' : paymentMode;
 
-        const sale: SaleRecord = {
-            id: saleId,
-            type: 'room',
-            roomNumber,
-            items: room.currentOrders,
-            totalAmount,
-            paymentMode,
-            timestamp: Date.now()
-        };
+            const sale: SaleRecord = {
+                id: saleId,
+                type: 'room',
+                roomNumber,
+                guestName: room.guestName,
+                items: room.currentOrders,
+                totalAmount,
+                amountPaid: finalAmountPaid,
+                paymentMode: finalPaymentMode,
+                timestamp: Date.now()
+            };
 
-        try {
-            const batch = writeBatch(db);
-            const saleRef = doc(db, 'sales', saleId);
-            batch.set(saleRef, sale);
+            try {
+                const batch = writeBatch(db);
+                const saleRef = doc(db, 'sales', saleId);
+                batch.set(saleRef, sale);
 
-            const roomRef = doc(db, 'rooms', room.id);
-            batch.update(roomRef, { status: 'vacant', currentOrders: [] });
+                if (finalAmountPaid < totalAmount) {
+                    const creditId = generateId();
+                    const creditRecord: CreditRecord = {
+                        id: creditId,
+                        customerName: room.guestName || `Room ${roomNumber} Guest`,
+                        roomNumber,
+                        amount: totalAmount - finalAmountPaid,
+                        items: room.currentOrders,
+                        status: 'pending',
+                        paymentMode: paymentMode,
+                        createdAt: Date.now()
+                    };
+                    const creditRef = doc(db, 'credits', creditId);
+                    batch.set(creditRef, creditRecord);
+                }
+
+                const roomRef = doc(db, 'rooms', room.id);
+                batch.update(roomRef, { status: 'vacant', currentOrders: [], guestName: '' });
 
             await batch.commit();
         } catch (e) {
@@ -323,7 +329,54 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const processOutsideSale = async (items: OrderItem[], paymentMode: PaymentMode) => {
+    const shiftRoom = async (sourceRoomId: string, targetRoomId: string) => {
+        const sourceRoom = rooms.find(r => r.number === sourceRoomId);
+        const targetRoom = rooms.find(r => r.number === targetRoomId);
+
+        if (!sourceRoom || !targetRoom) return { success: false, error: 'Room not found' };
+        if (targetRoom.status === 'occupied') return { success: false, error: 'Target room is already occupied' };
+        if (sourceRoom.currentOrders.length === 0 && !sourceRoom.guestName) return { success: false, error: 'Source room is empty' };
+
+        try {
+            const batch = writeBatch(db);
+
+            // Copy data to target room
+            const targetRef = doc(db, 'rooms', targetRoom.id);
+            batch.update(targetRef, {
+                status: 'occupied',
+                currentOrders: sourceRoom.currentOrders,
+                guestName: sourceRoom.guestName || ''
+            });
+
+            // Clear source room
+            const sourceRef = doc(db, 'rooms', sourceRoom.id);
+            batch.update(sourceRef, {
+                status: 'vacant',
+                currentOrders: [],
+                guestName: ''
+            });
+
+            await batch.commit();
+            return { success: true };
+        } catch (e: any) {
+            console.error(e);
+            return { success: false, error: e.message };
+        }
+    };
+
+    const updateRoomGuestName = async (roomNumber: string, guestName: string) => {
+        const room = rooms.find(r => r.number === roomNumber);
+        if (!room) return;
+
+        try {
+            const roomRef = doc(db, 'rooms', room.id);
+            await updateDoc(roomRef, { guestName });
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const processOutsideSale = async (items: OrderItem[], paymentMode: PaymentMode, guestName?: string, amountPaid?: number) => {
         for (const item of items) {
             const stockItem = inventory.find(i => i.id === item.drinkId);
             if (!stockItem || stockItem.stock < item.quantity) {
@@ -342,16 +395,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
             const saleId = generateId();
             const totalAmount = items.reduce((sum, i) => sum + i.total, 0);
+            const finalAmountPaid = amountPaid !== undefined ? amountPaid : totalAmount;
+            const finalPaymentMode = amountPaid !== undefined && amountPaid < totalAmount ? 'partial' : paymentMode;
+
             const sale: SaleRecord = {
                 id: saleId,
                 type: 'outside',
+                guestName,
                 items,
                 totalAmount,
-                paymentMode,
+                amountPaid: finalAmountPaid,
+                paymentMode: finalPaymentMode,
                 timestamp: Date.now()
             };
             const saleRef = doc(db, 'sales', saleId);
             batch.set(saleRef, sale);
+
+            if (finalAmountPaid < totalAmount) {
+                if (!guestName) throw new Error("Guest Name is required for credit sales");
+                const creditId = generateId();
+                const creditRecord: CreditRecord = {
+                    id: creditId,
+                    customerName: guestName,
+                    amount: totalAmount - finalAmountPaid,
+                    items: items,
+                    status: 'pending',
+                    paymentMode: paymentMode,
+                    createdAt: Date.now()
+                };
+                const creditRef = doc(db, 'credits', creditId);
+                batch.set(creditRef, creditRecord);
+            }
 
             await batch.commit();
             return { success: true };
@@ -456,33 +530,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     };
 
     // User Functions
-    const login = async (password: string): Promise<boolean> => {
-        const foundUser = users.find(u => u.password === password);
-        if (foundUser) {
-            setCurrentUser(foundUser);
-            localStorage.setItem('currentUser', JSON.stringify(foundUser));
-            return true;
-        }
-        return false;
-    };
-
-    const logout = () => {
-        setCurrentUser(null);
-        localStorage.removeItem('currentUser');
-    };
-
-    const changePassword = async (oldPass: string, newPass: string) => {
-        if (!currentUser) return { success: false, error: "Not logged in" };
-        if (currentUser.password !== oldPass) {
-            return { success: false, error: "Incorrect old password" };
-        }
+    const logout = async () => {
         try {
-            const userRef = doc(db, 'users', currentUser.id);
-            await updateDoc(userRef, { password: newPass });
-            return { success: true };
-        } catch (e: any) {
-            return { success: false, error: e.message };
+            await signOut(auth);
+        } catch (e) {
+            console.error(e);
         }
+    };
+
+    // Credit Functions
+    const settleCredit = async (id: string, paymentMode?: PaymentMode) => {
+        try {
+            const creditRef = doc(db, 'credits', id);
+            await updateDoc(creditRef, { 
+                status: 'settled', 
+                settledAt: Date.now(),
+                ...(paymentMode ? { paymentMode } : {})
+            });
+        } catch (e) { console.error(e); }
+    };
+
+    const deleteCredit = async (id: string) => {
+        try { await deleteDoc(doc(db, 'credits', id)); } catch (e) { console.error(e); }
+    };
+
+    const addCredit = async (creditData: Omit<CreditRecord, 'id' | 'createdAt'>) => {
+        try {
+            const newCredit: CreditRecord = { ...creditData, id: generateId(), createdAt: Date.now() };
+            await setDoc(doc(db, 'credits', newCredit.id), newCredit);
+        } catch (e) { console.error(e); }
     };
 
     return (
@@ -491,10 +567,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             rooms,
             salesHistory,
             staff,
-            users,
+            credits,
             currentUser,
             addToRoom,
             removeFromRoom,
+            shiftRoom,
+            updateRoomGuestName,
             checkoutRoom,
             processOutsideSale,
             restockInventory,
@@ -508,9 +586,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             addStaff,
             removeStaff,
             updateStaff,
-            login,
             logout,
-            changePassword
+            settleCredit,
+            deleteCredit,
+            addCredit
         }}>
             {children}
         </StoreContext.Provider>

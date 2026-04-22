@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { StoreProvider } from "@/context/StoreContext";
 import { ThemeProvider } from "@/context/ThemeContext";
-import { Sidebar } from "@/components/layout/Sidebar";
+import AuthWrapper from "@/components/layout/AuthWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,12 +32,9 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <StoreProvider>
-            <Sidebar />
-            <main className="pl-20 lg:pl-64 min-h-screen transition-all duration-300">
-              <div className="container mx-auto p-4 md:p-8 max-w-[1600px]">
-                {children}
-              </div>
-            </main>
+            <AuthWrapper>
+              {children}
+            </AuthWrapper>
           </StoreProvider>
         </ThemeProvider>
       </body>

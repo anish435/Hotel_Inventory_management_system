@@ -16,7 +16,7 @@ interface AdminAuthModalProps {
 
 
 export function AdminAuthModal({ isOpen, onClose, onSuccess, actionTitle, forceAuth = false }: AdminAuthModalProps) {
-    const { currentUser, users } = useStore();
+    const { currentUser } = useStore();
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [showPassword, setShowPassword] = useState(false);
@@ -40,11 +40,8 @@ export function AdminAuthModal({ isOpen, onClose, onSuccess, actionTitle, forceA
         setError("");
 
         try {
-            // Check against 'admin' user in database or hardcoded fallback
-            const adminUser = users.find(u => u.role === 'admin');
-
-            // Allow checking against the specific admin user's password OR hardcoded fallback if DB is empty/locked out
-            const validPass = adminUser ? adminUser.password : 'admin';
+            // Allow checking against hardcoded fallback for local dev overriding
+            const validPass = 'admin';
 
             if (password === validPass || password === 'admin') {
                 onSuccess();

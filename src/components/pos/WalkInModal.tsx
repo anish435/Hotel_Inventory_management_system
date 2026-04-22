@@ -8,6 +8,8 @@ import { X, Trash2, CreditCard, Banknote, ShoppingCart, UserPlus } from "lucide-
 import { useState } from "react";
 import { OrderItem, PaymentMode } from "@/types";
 import { AdminAuthModal } from "./AdminAuthModal";
+import { BookOpen } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface WalkInModalProps {
     isOpen: boolean;
@@ -20,6 +22,9 @@ export function WalkInModal({ isOpen, onClose }: WalkInModalProps) {
     const [checkoutStep, setCheckoutStep] = useState<'view' | 'payment'>('view');
     const [adminAuthOpen, setAdminAuthOpen] = useState(false);
     const [itemToRemove, setItemToRemove] = useState<string | null>(null);
+    const [guestName, setGuestName] = useState<string>('');
+    const [amountPaidInput, setAmountPaidInput] = useState<string>("");
+    const router = useRouter();
 
     if (!isOpen) return null;
 
@@ -97,15 +102,29 @@ export function WalkInModal({ isOpen, onClose }: WalkInModalProps) {
 
     const handleCheckout = async (mode: PaymentMode) => {
         try {
-            const result = await processOutsideSale(currentOrder, mode);
+            const parsedAmount = parseFloat(amountPaidInput);
+            let finalAmount = isNaN(parsedAmount) ? totalAmount : parsedAmount;
+            if (mode === 'credit') finalAmount = 0;
+            
+            if (finalAmount < totalAmount && !guestName.trim()) {
+                alert("Guest Name is required when creating a credit.");
+                return;
+            }
+
+            const result = await processOutsideSale(currentOrder, mode, guestName.trim() || undefined, finalAmount);
 
             if (result && result.success) {
                 // 1. Reset Internal State
                 setCurrentOrder([]);
+                setGuestName('');
                 setCheckoutStep('view');
 
                 // 2. Close Modal
                 onClose();
+
+                if (mode === 'credit' || finalAmount < totalAmount) {
+                    router.push('/credits');
+                }
             } else {
                 alert((result && result.error) || "Transaction failed. Please try again.");
             }
@@ -121,17 +140,28 @@ export function WalkInModal({ isOpen, onClose }: WalkInModalProps) {
 
                 {/* Left Side: Order Details */}
                 <div className="w-full md:w-1/2 flex flex-col border-b md:border-b-0 md:border-r border-zinc-800 bg-zinc-950/80 h-[60%] md:h-full order-1 md:order-1">
-                    <div className="p-4 md:p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
-                        <div>
-                            <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
-                                <UserPlus className="h-5 w-5 md:h-6 md:w-6 text-indigo-400" />
-                                Walk-in Sale
-                            </h2>
-                            <p className="text-zinc-400 text-xs md:text-sm">Direct billing (No Room)</p>
+                    <div className="p-4 md:p-6 border-b border-zinc-800 bg-zinc-900/50 space-y-4">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                                    <UserPlus className="h-5 w-5 md:h-6 md:w-6 text-indigo-400" />
+                                    Walk-in Sale
+                                </h2>
+                                <p className="text-zinc-400 text-xs md:text-sm">Direct billing (No Room)</p>
+                            </div>
+                            <button onClick={onClose} className="md:hidden p-2 hover:bg-zinc-800 rounded-lg transition-colors">
+                                <X className="h-5 w-5 text-zinc-400" />
+                            </button>
                         </div>
-                        <button onClick={onClose} className="md:hidden p-2 hover:bg-zinc-800 rounded-lg transition-colors">
-                            <X className="h-5 w-5 text-zinc-400" />
-                        </button>
+                        <div className="flex items-center">
+                            <input
+                                type="text"
+                                placeholder="Guest Name (Optional)"
+                                value={guestName}
+                                onChange={(e) => setGuestName(e.target.value)}
+                                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-white placeholder:text-zinc-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-sm"
+                            />
+                        </div>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-4 md:p-6">
@@ -184,14 +214,34 @@ export function WalkInModal({ isOpen, onClose }: WalkInModalProps) {
                             <Button
                                 className="w-full h-12 text-lg"
                                 disabled={currentOrder.length === 0}
-                                onClick={() => setCheckoutStep('payment')}
+                                onClick={() => {
+                                    setAmountPaidInput(totalAmount.toString());
+                                    setCheckoutStep('payment');
+                                }}
                             >
                                 Proceed to Pay
                             </Button>
                         ) : (
-                            <div className="space-y-3">
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-xs text-zinc-500 mb-1 block">Amount Paid (Partial Payment creates Credit)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">₹</span>
+                                        <input
+                                            type="number"
+                                            value={amountPaidInput}
+                                            onChange={(e) => setAmountPaidInput(e.target.value)}
+                                            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-8 pr-4 py-2.5 text-white focus:outline-none focus:border-indigo-500/50"
+                                        />
+                                    </div>
+                                    {parseFloat(amountPaidInput) < totalAmount && (
+                                        <p className="text-amber-500 text-xs mt-2 font-medium">
+                                            Will create a credit of {formatCurrency(totalAmount - parseFloat(amountPaidInput))}
+                                        </p>
+                                    )}
+                                </div>
                                 <p className="text-sm text-center text-zinc-400 mb-2">Select Payment Method</p>
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-3 gap-3">
                                     <Button
                                         variant="secondary"
                                         className="h-12 flex flex-col items-center gap-1"
@@ -202,11 +252,19 @@ export function WalkInModal({ isOpen, onClose }: WalkInModalProps) {
                                     </Button>
                                     <Button
                                         variant="primary"
-                                        className="h-12 flex flex-col items-center gap-1"
+                                        className="h-12 flex flex-col items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white"
                                         onClick={() => handleCheckout('upi')}
                                     >
                                         <CreditCard className="h-4 w-4" />
                                         <span>UPI</span>
+                                    </Button>
+                                    <Button
+                                        variant="secondary"
+                                        className="h-12 flex flex-col items-center gap-1 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border-amber-500/20"
+                                        onClick={() => handleCheckout('credit')}
+                                    >
+                                        <BookOpen className="h-4 w-4" />
+                                        <span>Credit</span>
                                     </Button>
                                 </div>
                                 <Button
